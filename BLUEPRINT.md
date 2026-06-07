@@ -173,6 +173,30 @@ That's the whole contract.
   `CAP` with a "showing first N" note so 3,200 rows never janks. Same card/chip/hairline
   vocabulary as the quiz; flags render with `hideUnknown` so only real flags show, never a
   badge per "Kingdom of …".
+- **`reveal.tsx`** — the feedback panel, built to *teach and stick*, not just say right/wrong.
+  Verdict line (green `correct` / red `not quite`) **always restates the answer**, then a
+  consistent **war card**: name → dates, both sides with flags + a `Trophy` on the victor,
+  a locator `WorldMap`, and tags (region · deaths · outcome). Rules: **always show the map &
+  flags where we have them**, but **never double up** — if the question already showed flags
+  (`flags` mode) hide the card's sides; if it already showed the map (`map` mode) hide the
+  card's map (keyed off `q.mode`). Comparison modes (`deadlier`/`earlier`) render a one-line
+  takeaway ("~14× deadlier", "136 years before") over two highlighted cards; `order` mode
+  lists the correct sequence with each row green/red by whether the player placed it there.
+- **`timeline.tsx`** (`pin` mode) — `TimelineSlider` to drag a year + lock in; `TimelineResult`
+  drops two pins (guess vs truth) on the axis so "how close was I" is spatial and memorable.
+- **`sortable.tsx`** (`order` mode) — up/down reordering of 3 wars by year or death toll.
+
+### Answer inputs are pluggable (war-quiz)
+
+Not every mode is 4 pills. `quiz.tsx` keeps one generalized `commit(correct: boolean)` that
+updates score/streak and flips a single `done` gate; each mode renders its own input and calls
+`commit` when locked: MC grid (`choose`), the **`winner` left / stalemate / right** spatial
+layout, the timeline slider (`lockPin`, within `tolerance` years = correct), and the sortable
+list (`lockOrder`, exact order = correct). The reveal then reads `done`. Add an interactive
+mode → add an input + a `commit` call; don't bolt it onto the options array.
+
+The **wordmark hard-resets**: clicking "war quiz" does `window.location.href = "/"` (full
+document load, wipes score/streak) rather than a soft SPA nav.
 
 ---
 

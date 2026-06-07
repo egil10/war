@@ -22,7 +22,9 @@ export type ModeId =
   | "map"
   | "deadlier"
   | "earlier"
-  | "region";
+  | "region"
+  | "pin"
+  | "order";
 
 export type Option = {
   label: string;
@@ -39,4 +41,15 @@ export type Question = {
   options: Option[];
   fact: string;
   wiki: string;
+  answer: string; // the correct option's label, restated on reveal
+  war?: War; // subject war (single-war modes)
+  warA?: War; // comparison modes
+  warB?: War;
+  // pin (timeline slider) mode
+  domain?: [number, number];
+  tolerance?: number;
+  // order (sort) mode
+  items?: War[]; // wars to sort, in their correct order
+  orderBy?: "year" | "deaths";
+  orderLabel?: string; // e.g. "earliest → latest"
 };

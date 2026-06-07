@@ -3,13 +3,18 @@ import { hasMappable, countryIds } from "./geo";
 
 export const MODES: { id: ModeId; label: string; blurb: string }[] = [
   { id: "year", label: "guess the year", blurb: "when did it begin?" },
+  { id: "pin", label: "pin the year", blurb: "slide along the timeline" },
   { id: "winner", label: "who won?", blurb: "name the victor" },
   { id: "flags", label: "name the war", blurb: "from the belligerents" },
   { id: "map", label: "on the map", blurb: "from the geography" },
+  { id: "order", label: "put in order", blurb: "sort by year or toll" },
   { id: "deadlier", label: "deadlier?", blurb: "which cost more lives" },
   { id: "earlier", label: "earlier?", blurb: "which came first" },
   { id: "region", label: "where?", blurb: "the main theatre" },
 ];
+
+const PIN_DOMAIN: [number, number] = [1000, new Date().getFullYear()];
+const PIN_TOL = 15;
 
 const ALL_MODES = MODES.map((m) => m.id);
 
@@ -40,7 +45,7 @@ export function formatRange(start: number, end: number): string {
   return `${formatYear(start)}–${formatYear(end)}`;
 }
 
-function formatDeaths(n: number): string {
+export function formatDeaths(n: number): string {
   if (n >= 1_000_000) return `~${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)} million`;
   if (n >= 1_000) return `~${Math.round(n / 1000)},000`;
   return `~${n}`;
@@ -60,6 +65,8 @@ function sideLabel(names: string[] | undefined, named: string | undefined, fallb
 const ELIGIBLE: Record<ModeId, (w: War) => boolean> = {
   year: () => true,
   earlier: () => true,
+  order: () => true,
+  pin: (w) => w.start >= PIN_DOMAIN[0] && w.start <= PIN_DOMAIN[1],
   winner: (w) => w.sideA.length > 0 && w.sideB.length > 0,
   flags: (w) => hasMappable(w.sideA) && hasMappable(w.sideB),
   map: (w) => countryIds([...w.sideA, ...w.sideB]).length > 0,
@@ -103,6 +110,8 @@ function genYear(pool: War[], all: War[]): Question {
     prompt: `When did the ${w.name} begin?`,
     hint: `${sideLabel(w.sideA, w.sideAName, "one side")} vs ${sideLabel(w.sideB, w.sideBName, "another")}`,
     options,
+    answer: formatYear(correct),
+    war: w,
     fact: `The ${w.name} ran ${formatRange(w.start, w.end)}${w.outcome ? ` — ${w.outcome.toLowerCase()}` : ""}.`,
     wiki: wikiUrl(w),
   };
@@ -112,16 +121,19 @@ function genWinner(pool: War[]): Question {
   const w = pick(pool);
   const a = sideLabel(w.sideA, w.sideAName, "one side");
   const b = sideLabel(w.sideB, w.sideBName, "the other side");
+  // fixed order: side A (left) · stalemate (middle) · side B (right)
   const opts: Option[] = [
     { label: a, correct: w.winner === "A" },
-    { label: b, correct: w.winner === "B" },
     { label: "Stalemate / inconclusive", correct: w.winner === "draw" },
+    { label: b, correct: w.winner === "B" },
   ];
   return {
     mode: "winner",
     prompt: `Who came out on top in the ${w.name}?`,
     hint: formatRange(w.start, w.end),
-    options: shuffle(opts),
+    options: opts,
+    answer: w.winner === "A" ? a : w.winner === "B" ? b : "Stalemate / inconclusive",
+    war: w,
     fact: w.outcome
       ? `${w.outcome} (${formatRange(w.start, w.end)}).`
       : w.winner === "draw"
@@ -144,6 +156,8 @@ function genFlags(pool: War[], all: War[]): Question {
     flagsA: w.sideA,
     flagsB: w.sideB,
     options,
+    answer: w.name,
+    war: w,
     fact: `${w.name} (${formatRange(w.start, w.end)})${w.outcome ? ` — ${w.outcome.toLowerCase()}` : ""}.`,
     wiki: wikiUrl(w),
   };
@@ -162,6 +176,8 @@ function genMap(pool: War[], all: War[]): Question {
     flagsA: w.sideA,
     flagsB: w.sideB,
     options,
+    answer: w.name,
+    war: w,
     fact: `${w.name} (${formatRange(w.start, w.end)})${w.region ? ` — mainly in ${w.region}` : ""}.`,
     wiki: wikiUrl(w),
   };
@@ -187,6 +203,9 @@ function genDeadlier(pool: War[]): Question {
     mode: "deadlier",
     prompt: "Which war was deadlier?",
     options,
+    answer: (aWins ? a : b).name,
+    warA: a,
+    warB: b,
     fact: `${a.name}: ${formatDeaths(a.deaths!)} dead · ${b.name}: ${formatDeaths(b.deaths!)} dead.`,
     wiki: wikiUrl(aWins ? a : b),
   };
@@ -209,6 +228,9 @@ function genEarlier(pool: War[]): Question {
     mode: "earlier",
     prompt: "Which war began earlier?",
     options,
+    answer: (aFirst ? a : b).name,
+    warA: a,
+    warB: b,
     fact: `${a.name} began ${formatYear(a.start)} · ${b.name} began ${formatYear(b.start)}.`,
     wiki: wikiUrl(aFirst ? a : b),
   };
@@ -224,8 +246,76 @@ function genRegion(pool: War[]): Question {
     prompt: `Where was the ${w.name} mainly fought?`,
     hint: formatRange(w.start, w.end),
     options,
+    answer: w.region!,
+    war: w,
     fact: `The ${w.name} was fought mainly in ${w.region}.`,
     wiki: wikiUrl(w),
+  };
+}
+
+function genPin(pool: War[]): Question {
+  const w = pick(pool);
+  return {
+    mode: "pin",
+    prompt: `Pin the year the ${w.name} began.`,
+    hint: `${sideLabel(w.sideA, w.sideAName, "one side")} vs ${sideLabel(w.sideB, w.sideBName, "another")}`,
+    options: [],
+    answer: formatYear(w.start),
+    war: w,
+    domain: PIN_DOMAIN,
+    tolerance: PIN_TOL,
+    fact: `The ${w.name} began in ${formatYear(w.start)}${w.outcome ? ` — ${w.outcome.toLowerCase()}` : ""}.`,
+    wiki: wikiUrl(w),
+  };
+}
+
+function pickDistinct(pool: War[], n: number, key: (w: War) => number): War[] {
+  const out: War[] = [];
+  const seen = new Set<number>();
+  let guard = 0;
+  while (out.length < n && guard < 600) {
+    const w = pick(pool);
+    const k = key(w);
+    if (!seen.has(k) && !out.includes(w)) {
+      seen.add(k);
+      out.push(w);
+    }
+    guard++;
+  }
+  return out;
+}
+
+function genOrder(p: Record<ModeId, War[]>): Question {
+  const N = 3;
+  const useDeaths = p.deadlier.length >= N + 1 && Math.random() < 0.5;
+  let items: War[];
+  let orderBy: "year" | "deaths";
+  let orderLabel: string;
+  if (useDeaths) {
+    items = pickDistinct(p.deadlier, N, (w) => w.deaths!);
+    items.sort((a, b) => b.deaths! - a.deaths!);
+    orderBy = "deaths";
+    orderLabel = "deadliest → least deadly";
+  } else {
+    items = pickDistinct(p.year, N, (w) => w.start);
+    items.sort((a, b) => a.start - b.start);
+    orderBy = "year";
+    orderLabel = "earliest → latest";
+  }
+  const fact =
+    orderBy === "deaths"
+      ? items.map((w) => `${w.name} (${formatDeaths(w.deaths!)})`).join("  ›  ")
+      : items.map((w) => `${w.name} (${formatYear(w.start)})`).join("  ›  ");
+  return {
+    mode: "order",
+    prompt: `Put these in order — ${orderLabel}.`,
+    options: [],
+    answer: items.map((w) => w.name).join(" › "),
+    items,
+    orderBy,
+    orderLabel,
+    fact,
+    wiki: wikiUrl(items[0]),
   };
 }
 
@@ -233,12 +323,16 @@ function build(mode: ModeId, p: Record<ModeId, War[]>, all: War[]): Question {
   switch (mode) {
     case "year":
       return genYear(p.year, all);
+    case "pin":
+      return genPin(p.pin);
     case "winner":
       return genWinner(p.winner);
     case "flags":
       return genFlags(p.flags, all);
     case "map":
       return genMap(p.map, all);
+    case "order":
+      return genOrder(p);
     case "deadlier":
       return genDeadlier(p.deadlier);
     case "earlier":
@@ -248,7 +342,7 @@ function build(mode: ModeId, p: Record<ModeId, War[]>, all: War[]): Question {
   }
 }
 
-const MIN: Partial<Record<ModeId, number>> = { deadlier: 2, earlier: 2 };
+const MIN: Partial<Record<ModeId, number>> = { deadlier: 2, earlier: 2, order: 3 };
 
 export function nextQuestion(wars: War[], mode: ModeId | "mixed"): Question {
   const p = pools(wars);

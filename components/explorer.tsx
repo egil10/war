@@ -66,12 +66,17 @@ export function Explorer({ seed }: { seed: War[] }) {
         <div className="mx-auto max-w-5xl px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Swords size={16} className="text-accent" />
-              <span className="text-sm font-semibold tracking-tight">war quiz</span>
-              <Link
-                href="/"
-                className="ml-1 text-xs text-muted transition-colors hover:text-accent"
+              <button
+                onClick={() => {
+                  window.location.href = "/";
+                }}
+                title="reset & reload"
+                className="flex items-center gap-2 transition-opacity hover:opacity-70"
               >
+                <Swords size={16} className="text-accent" />
+                <span className="text-sm font-semibold tracking-tight">war quiz</span>
+              </button>
+              <Link href="/" className="ml-1 text-xs text-muted transition-colors hover:text-accent">
                 ← back to quiz
               </Link>
             </div>
