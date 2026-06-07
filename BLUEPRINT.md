@@ -48,10 +48,13 @@ They're stored as raw RGB triples (`220 38 38`) so Tailwind's `<alpha-value>` wo
 that's what lets you write `bg-accent/10`, `border-accent/40`, `text-accent`. One accent
 color, used sparingly, carries the entire brand. Resist adding a second.
 
-**Correct vs wrong stays single-accent on purpose.** A right answer lights up in the red
-accent (`border-accent bg-accent/10 text-accent`); a wrong pick goes *neutral* — dimmed,
-muted, `line-through` — never a second hue. Red is the brand, not an error color, so we
-never pair it with green/rose; the contrast is accent-vs-absence, not red-vs-green.
+**Answer feedback is the one place a second/third hue is allowed.** The brand accent is red
+and carries everything else, but right/wrong needs the universal quiz semantics, so: a
+**correct** option goes green (`border-emerald-500/70 bg-emerald-500/10 text-emerald-600
+dark:text-emerald-400`) and an **incorrect** pick goes red (`border-red-500/70 bg-red-500/10
+text-red-600 dark:text-red-400`); the matching "correct" / "not quite" feedback line uses the
+same emerald/red. Unpicked options on reveal just dim (`opacity-45`). These green/red states
+are scoped strictly to answer feedback — everywhere else stays single red accent.
 
 ### Typography
 

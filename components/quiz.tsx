@@ -192,8 +192,10 @@ export function Quiz({ wars }: { wars: War[] }) {
                 const isPicked = picked === i;
                 const reveal = picked !== null;
                 let cls = "border-border hover:border-accent/50 hover:bg-accent/[0.04]";
-                if (reveal && opt.correct) cls = "border-accent bg-accent/10 text-accent";
-                else if (reveal && isPicked) cls = "border-border bg-bg text-muted line-through opacity-70";
+                if (reveal && opt.correct)
+                  cls = "border-emerald-500/70 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+                else if (reveal && isPicked)
+                  cls = "border-red-500/70 bg-red-500/10 text-red-600 dark:text-red-400";
                 else if (reveal) cls = "border-border opacity-45";
                 return (
                   <button
@@ -220,7 +222,9 @@ export function Quiz({ wars }: { wars: War[] }) {
                 <p className="text-sm">
                   <span
                     className={
-                      q.options[picked].correct ? "font-semibold text-accent" : "font-semibold text-muted"
+                      q.options[picked].correct
+                        ? "font-semibold text-emerald-600 dark:text-emerald-400"
+                        : "font-semibold text-red-600 dark:text-red-400"
                     }
                   >
                     {q.options[picked].correct ? "correct" : "not quite"}
