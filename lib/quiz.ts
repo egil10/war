@@ -1,9 +1,11 @@
 import type { War, Question, ModeId, Option } from "./types";
+import { hasMappable } from "./geo";
 
 export const MODES: { id: ModeId; label: string; blurb: string }[] = [
   { id: "year", label: "guess the year", blurb: "when did it begin?" },
   { id: "winner", label: "who won?", blurb: "name the victor" },
   { id: "flags", label: "name the war", blurb: "from the belligerents" },
+  { id: "map", label: "on the map", blurb: "from the geography" },
   { id: "deadlier", label: "deadlier?", blurb: "which cost more lives" },
   { id: "earlier", label: "earlier?", blurb: "which came first" },
   { id: "region", label: "where?", blurb: "the main theatre" },
@@ -156,6 +158,25 @@ function genEarlier(wars: War[]): Question {
   };
 }
 
+function genMap(wars: War[]): Question {
+  const mappable = wars.filter((w) => hasMappable(w.sideA) || hasMappable(w.sideB));
+  const w = pick(mappable.length ? mappable : wars);
+  const distractors = sample(
+    wars.filter((x) => x.id !== w.id),
+    3
+  ).map((x) => ({ label: x.name, correct: false }));
+  const options = shuffle([{ label: w.name, correct: true }, ...distractors]);
+  return {
+    mode: "map",
+    prompt: "Which war was fought in the highlighted countries?",
+    flagsA: w.sideA,
+    flagsB: w.sideB,
+    options,
+    fact: `${w.name} (${formatRange(w.start, w.end)}) — mainly in ${w.region}.`,
+    wiki: w.wiki,
+  };
+}
+
 function genRegion(wars: War[]): Question {
   const w = pick(wars);
   const regions = [...new Set(wars.map((x) => x.region))];
@@ -175,6 +196,7 @@ const GENERATORS: Record<ModeId, (wars: War[]) => Question> = {
   year: genYear,
   winner: genWinner,
   flags: genFlags,
+  map: genMap,
   deadlier: genDeadlier,
   earlier: genEarlier,
   region: genRegion,

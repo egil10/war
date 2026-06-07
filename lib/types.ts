@@ -18,6 +18,7 @@ export type ModeId =
   | "year"
   | "winner"
   | "flags"
+  | "map"
   | "deadlier"
   | "earlier"
   | "region";

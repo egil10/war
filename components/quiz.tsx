@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Swords, ExternalLink, ArrowRight, RotateCcw } from "lucide-react";
 import type { War, Question, ModeId } from "@/lib/types";
 import { MODES, nextQuestion } from "@/lib/quiz";
+import { countryIds } from "@/lib/geo";
 import { FlagRow } from "./flag";
+import { WorldMap } from "./world-map";
 import { ThemeToggle } from "./theme-toggle";
 
 type Mode = ModeId | "mixed";
@@ -172,6 +174,16 @@ export function Quiz({ wars }: { wars: War[] }) {
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <SideBox label="one" names={q.flagsA} />
                 <SideBox label="two" names={q.flagsB} />
+              </div>
+            )}
+
+            {q.mode === "map" && q.flagsA && q.flagsB && (
+              <div className="mt-5">
+                <WorldMap
+                  primary={countryIds(q.flagsA)}
+                  secondary={countryIds(q.flagsB)}
+                  height={260}
+                />
               </div>
             )}
 

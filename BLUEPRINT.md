@@ -155,6 +155,15 @@ That's the whole contract.
   `globals.css`, so chart text/grid automatically match the palette).
 - **`theme-toggle.tsx`** — three-segment pill (sun / monitor / moon); guards against hydration
   flash by rendering a placeholder until `mounted`.
+- **`world-map.tsx`** (war-quiz) — a dependency-free locator map. Rather than ship a runtime
+  map library (react-simple-maps wants React ≤18), `scripts/build-map.mjs` projects a world
+  topojson through `d3-geo` (`geoEqualEarth`) **at build time** into `public/world-paths.json`
+  — a flat list of `{ id, d }` SVG paths. The component fetches that once (module-level cache),
+  then renders plain `<path>`s, tinting belligerents in `accent` (side one solid, side two
+  `accent/45`) and everything else in `border/55`. Country name → ISO-numeric id lives in
+  `lib/geo.ts`; historical states resolve to a representative modern country so the pin still
+  lands. Fills use `rgb(var(--accent))` etc. so the map re-themes with light/dark for free.
+  This is the BLUEPRINT2 rule in practice: **precompute, ship static, fetch on demand.**
 
 ---
 
