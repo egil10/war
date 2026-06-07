@@ -34,7 +34,6 @@ function shuffle<T>(arr: T[]): T[] {
 export function Quiz({ seed }: { seed: War[] }) {
   const [mounted, setMounted] = useState(false);
   const [pool, setPool] = useState<War[]>(() => cachedWars() ?? seed);
-  const [total, setTotal] = useState<number>(() => (cachedWars() ?? seed).length);
   const [mode, setMode] = useState<Mode>("mixed");
   const [auto, setAuto] = useState(0);
   const [q, setQ] = useState<Question | null>(null);
@@ -81,10 +80,7 @@ export function Quiz({ seed }: { seed: War[] }) {
   useEffect(() => {
     let alive = true;
     loadWars().then((all) => {
-      if (alive) {
-        setPool(all);
-        setTotal(all.length);
-      }
+      if (alive) setPool(all);
     });
     return () => {
       alive = false;
@@ -349,10 +345,6 @@ export function Quiz({ seed }: { seed: War[] }) {
             )}
           </div>
         )}
-
-        <div className="mt-4 text-center text-[11px] text-muted">
-          <span className="tabular-nums">{total.toLocaleString()}</span> wars in play
-        </div>
       </div>
     </main>
   );
