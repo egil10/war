@@ -1,5 +1,5 @@
 import type { War, Question, ModeId, Option } from "./types";
-import { hasMappable } from "./geo";
+import { hasMappable, countryIds } from "./geo";
 
 export const MODES: { id: ModeId; label: string; blurb: string }[] = [
   { id: "year", label: "guess the year", blurb: "when did it begin?" },
@@ -46,17 +46,47 @@ function formatDeaths(n: number): string {
   return `~${n}`;
 }
 
-// --- generators -------------------------------------------------------------
+export function wikiUrl(w: War): string {
+  return w.wiki || `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(w.name)}`;
+}
 
-function genYear(wars: War[]): Question {
-  const w = pick(wars);
+function sideLabel(names: string[] | undefined, named: string | undefined, fallback: string): string {
+  if (named) return named;
+  if (names && names.length) return names.length > 1 ? `${names[0]} & allies` : names[0];
+  return fallback;
+}
+
+// --- eligibility: which wars can power which mode -------------------------
+const ELIGIBLE: Record<ModeId, (w: War) => boolean> = {
+  year: () => true,
+  earlier: () => true,
+  winner: (w) => w.sideA.length > 0 && w.sideB.length > 0,
+  flags: (w) => hasMappable(w.sideA) && hasMappable(w.sideB),
+  map: (w) => countryIds([...w.sideA, ...w.sideB]).length > 0,
+  deadlier: (w) => typeof w.deaths === "number",
+  region: (w) => !!w.region && !!w.featured,
+};
+
+let cacheKey: War[] | null = null;
+let cachePools: Record<ModeId, War[]>;
+function pools(wars: War[]): Record<ModeId, War[]> {
+  if (cacheKey === wars) return cachePools;
+  cachePools = {} as Record<ModeId, War[]>;
+  for (const m of ALL_MODES) cachePools[m] = wars.filter(ELIGIBLE[m]);
+  cacheKey = wars;
+  return cachePools;
+}
+
+// --- generators ----------------------------------------------------------
+
+function genYear(pool: War[], all: War[]): Question {
+  const w = pick(pool);
   const correct = w.start;
-  const nearby = wars
+  const nearby = all
     .map((x) => x.start)
-    .filter((y) => y !== correct && Math.abs(y - correct) <= 120 && Math.abs(y - correct) >= 3);
+    .filter((y) => y !== correct && Math.abs(y - correct) <= 120 && Math.abs(y - correct) >= 2);
   const distractSet = new Set<number>(sample([...new Set(nearby)], 3));
-  // top up with offsets if not enough distinct nearby years
-  const offsets = [3, 5, 8, 11, 17, 24];
+  const offsets = [2, 4, 7, 11, 18, 27, 40];
   let oi = 0;
   while (distractSet.size < 3 && oi < offsets.length * 2) {
     const sign = oi % 2 === 0 ? 1 : -1;
@@ -71,18 +101,20 @@ function genYear(wars: War[]): Question {
   return {
     mode: "year",
     prompt: `When did the ${w.name} begin?`,
-    hint: `${w.sideAName} vs ${w.sideBName}`,
+    hint: `${sideLabel(w.sideA, w.sideAName, "one side")} vs ${sideLabel(w.sideB, w.sideBName, "another")}`,
     options,
-    fact: `The ${w.name} ran ${formatRange(w.start, w.end)} — ${w.outcome.toLowerCase()}.`,
-    wiki: w.wiki,
+    fact: `The ${w.name} ran ${formatRange(w.start, w.end)}${w.outcome ? ` — ${w.outcome.toLowerCase()}` : ""}.`,
+    wiki: wikiUrl(w),
   };
 }
 
-function genWinner(wars: War[]): Question {
-  const w = pick(wars);
+function genWinner(pool: War[]): Question {
+  const w = pick(pool);
+  const a = sideLabel(w.sideA, w.sideAName, "one side");
+  const b = sideLabel(w.sideB, w.sideBName, "the other side");
   const opts: Option[] = [
-    { label: w.sideAName, correct: w.winner === "A" },
-    { label: w.sideBName, correct: w.winner === "B" },
+    { label: a, correct: w.winner === "A" },
+    { label: b, correct: w.winner === "B" },
     { label: "Stalemate / inconclusive", correct: w.winner === "draw" },
   ];
   return {
@@ -90,39 +122,63 @@ function genWinner(wars: War[]): Question {
     prompt: `Who came out on top in the ${w.name}?`,
     hint: formatRange(w.start, w.end),
     options: shuffle(opts),
-    fact: `${w.outcome} (${formatRange(w.start, w.end)}).`,
-    wiki: w.wiki,
+    fact: w.outcome
+      ? `${w.outcome} (${formatRange(w.start, w.end)}).`
+      : w.winner === "draw"
+      ? `It ended inconclusively (${formatRange(w.start, w.end)}).`
+      : `${w.winner === "A" ? a : b} prevailed (${formatRange(w.start, w.end)}).`,
+    wiki: wikiUrl(w),
   };
 }
 
-function genFlags(wars: War[]): Question {
-  const w = pick(wars);
-  const distractors = sample(
-    wars.filter((x) => x.id !== w.id),
-    3
-  ).map((x) => ({ label: x.name, correct: false }));
+function genFlags(pool: War[], all: War[]): Question {
+  const w = pick(pool);
+  const distractors = sample(all.filter((x) => x.id !== w.id), 3).map((x) => ({
+    label: x.name,
+    correct: false,
+  }));
   const options = shuffle([{ label: w.name, correct: true }, ...distractors]);
   return {
     mode: "flags",
     prompt: "Which war was fought between these sides?",
-    hint: `${w.sideAName}  vs  ${w.sideBName}`,
     flagsA: w.sideA,
     flagsB: w.sideB,
     options,
-    fact: `${w.name} (${formatRange(w.start, w.end)}) — ${w.outcome.toLowerCase()}.`,
-    wiki: w.wiki,
+    fact: `${w.name} (${formatRange(w.start, w.end)})${w.outcome ? ` — ${w.outcome.toLowerCase()}` : ""}.`,
+    wiki: wikiUrl(w),
   };
 }
 
-function genDeadlier(wars: War[]): Question {
-  let a = pick(wars);
-  let b = pick(wars);
+function genMap(pool: War[], all: War[]): Question {
+  const w = pick(pool);
+  const distractors = sample(all.filter((x) => x.id !== w.id), 3).map((x) => ({
+    label: x.name,
+    correct: false,
+  }));
+  const options = shuffle([{ label: w.name, correct: true }, ...distractors]);
+  return {
+    mode: "map",
+    prompt: "Which war was fought in the highlighted countries?",
+    flagsA: w.sideA,
+    flagsB: w.sideB,
+    options,
+    fact: `${w.name} (${formatRange(w.start, w.end)})${w.region ? ` — mainly in ${w.region}` : ""}.`,
+    wiki: wikiUrl(w),
+  };
+}
+
+function genDeadlier(pool: War[]): Question {
+  let a = pick(pool);
+  let b = pick(pool);
   let guard = 0;
-  while ((b.id === a.id || Math.max(a.deaths, b.deaths) / Math.min(a.deaths, b.deaths) < 1.3) && guard < 50) {
-    b = pick(wars);
+  while (
+    (b.id === a.id || Math.max(a.deaths!, b.deaths!) / Math.min(a.deaths!, b.deaths!) < 1.3) &&
+    guard < 50
+  ) {
+    b = pick(pool);
     guard++;
   }
-  const aWins = a.deaths > b.deaths;
+  const aWins = a.deaths! > b.deaths!;
   const options = shuffle([
     { label: a.name, sub: formatRange(a.start, a.end), correct: aWins },
     { label: b.name, sub: formatRange(b.start, b.end), correct: !aWins },
@@ -131,17 +187,17 @@ function genDeadlier(wars: War[]): Question {
     mode: "deadlier",
     prompt: "Which war was deadlier?",
     options,
-    fact: `${a.name}: ${formatDeaths(a.deaths)} dead · ${b.name}: ${formatDeaths(b.deaths)} dead.`,
-    wiki: (aWins ? a : b).wiki,
+    fact: `${a.name}: ${formatDeaths(a.deaths!)} dead · ${b.name}: ${formatDeaths(b.deaths!)} dead.`,
+    wiki: wikiUrl(aWins ? a : b),
   };
 }
 
-function genEarlier(wars: War[]): Question {
-  let a = pick(wars);
-  let b = pick(wars);
+function genEarlier(pool: War[]): Question {
+  let a = pick(pool);
+  let b = pick(pool);
   let guard = 0;
   while ((b.id === a.id || a.start === b.start) && guard < 50) {
-    b = pick(wars);
+    b = pick(pool);
     guard++;
   }
   const aFirst = a.start < b.start;
@@ -154,55 +210,52 @@ function genEarlier(wars: War[]): Question {
     prompt: "Which war began earlier?",
     options,
     fact: `${a.name} began ${formatYear(a.start)} · ${b.name} began ${formatYear(b.start)}.`,
-    wiki: (aFirst ? a : b).wiki,
+    wiki: wikiUrl(aFirst ? a : b),
   };
 }
 
-function genMap(wars: War[]): Question {
-  const mappable = wars.filter((w) => hasMappable(w.sideA) || hasMappable(w.sideB));
-  const w = pick(mappable.length ? mappable : wars);
-  const distractors = sample(
-    wars.filter((x) => x.id !== w.id),
-    3
-  ).map((x) => ({ label: x.name, correct: false }));
-  const options = shuffle([{ label: w.name, correct: true }, ...distractors]);
-  return {
-    mode: "map",
-    prompt: "Which war was fought in the highlighted countries?",
-    flagsA: w.sideA,
-    flagsB: w.sideB,
-    options,
-    fact: `${w.name} (${formatRange(w.start, w.end)}) — mainly in ${w.region}.`,
-    wiki: w.wiki,
-  };
-}
-
-function genRegion(wars: War[]): Question {
-  const w = pick(wars);
-  const regions = [...new Set(wars.map((x) => x.region))];
-  const distractors = sample(regions, 3, [w.region]).map((r) => ({ label: r, correct: false }));
-  const options = shuffle([{ label: w.region, correct: true }, ...distractors]);
+const REGION_SET = ["Europe", "Asia", "Africa", "Middle East", "Americas", "Oceania", "Global"];
+function genRegion(pool: War[]): Question {
+  const w = pick(pool);
+  const distractors = sample(REGION_SET, 3, [w.region!]).map((r) => ({ label: r, correct: false }));
+  const options = shuffle([{ label: w.region!, correct: true }, ...distractors]);
   return {
     mode: "region",
     prompt: `Where was the ${w.name} mainly fought?`,
     hint: formatRange(w.start, w.end),
     options,
     fact: `The ${w.name} was fought mainly in ${w.region}.`,
-    wiki: w.wiki,
+    wiki: wikiUrl(w),
   };
 }
 
-const GENERATORS: Record<ModeId, (wars: War[]) => Question> = {
-  year: genYear,
-  winner: genWinner,
-  flags: genFlags,
-  map: genMap,
-  deadlier: genDeadlier,
-  earlier: genEarlier,
-  region: genRegion,
-};
+function build(mode: ModeId, p: Record<ModeId, War[]>, all: War[]): Question {
+  switch (mode) {
+    case "year":
+      return genYear(p.year, all);
+    case "winner":
+      return genWinner(p.winner);
+    case "flags":
+      return genFlags(p.flags, all);
+    case "map":
+      return genMap(p.map, all);
+    case "deadlier":
+      return genDeadlier(p.deadlier);
+    case "earlier":
+      return genEarlier(p.earlier);
+    case "region":
+      return genRegion(p.region);
+  }
+}
+
+const MIN: Partial<Record<ModeId, number>> = { deadlier: 2, earlier: 2 };
 
 export function nextQuestion(wars: War[], mode: ModeId | "mixed"): Question {
-  const m = mode === "mixed" ? pick(ALL_MODES) : mode;
-  return GENERATORS[m](wars);
+  const p = pools(wars);
+  if (mode === "mixed") {
+    const available = ALL_MODES.filter((m) => p[m].length >= (MIN[m] ?? 1) && (m !== "flags" || wars.length >= 4));
+    return build(pick(available.length ? available : ["earlier"]), p, wars);
+  }
+  if (p[mode].length < (MIN[mode] ?? 1)) return build("earlier", p, wars);
+  return build(mode, p, wars);
 }

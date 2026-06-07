@@ -86,7 +86,15 @@ function monogram(name: string): string {
   return words.slice(0, 3).map((w) => w[0]).join("").toUpperCase();
 }
 
-export function Flag({ name, size = 22 }: { name: string; size?: number }) {
+export function Flag({
+  name,
+  size = 22,
+  hideUnknown = false,
+}: {
+  name: string;
+  size?: number;
+  hideUnknown?: boolean;
+}) {
   const code = ISO[name];
   if (code) {
     const h = Math.round(size * 1.5);
@@ -104,6 +112,7 @@ export function Flag({ name, size = 22 }: { name: string; size?: number }) {
       />
     );
   }
+  if (hideUnknown) return null;
   return (
     <span
       title={name}

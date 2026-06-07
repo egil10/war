@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "map": "node scripts/build-map.mjs"
+    "map": "node scripts/build-map.mjs",
+    "wars": "node scripts/fetch-wars.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.456.0",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
     "d3-geo": "^3.1.1",
+    "node-html-parser": "^7.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "topojson-client": "^3.1.0",

@@ -3,15 +3,16 @@ export type War = {
   name: string;
   start: number;
   end: number;
-  region: string;
-  sideAName: string;
   sideA: string[];
-  sideBName: string;
   sideB: string[];
   winner: "A" | "B" | "draw";
-  outcome: string;
-  deaths: number;
-  wiki: string;
+  region?: string;
+  sideAName?: string;
+  sideBName?: string;
+  outcome?: string;
+  deaths?: number;
+  wiki?: string;
+  featured?: boolean;
 };
 
 export type ModeId =

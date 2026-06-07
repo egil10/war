@@ -167,26 +167,43 @@ That's the whole contract.
   `lib/geo.ts`; historical states resolve to a representative modern country so the pin still
   lands. Fills use `rgb(var(--accent))` etc. so the map re-themes with light/dark for free.
   This is the BLUEPRINT2 rule in practice: **precompute, ship static, fetch on demand.**
+- **`explorer.tsx`** (war-quiz, `/database`) — the searchable browse view over the full set:
+  one `useState` per filter (`q` / `region` / `era` / `desc`), a `useMemo` that derives the
+  filtered+sorted rows, chips that toggle (`cur === v ? null : v`), and a row list capped at
+  `CAP` with a "showing first N" note so 3,200 rows never janks. Same card/chip/hairline
+  vocabulary as the quiz; flags render with `hideUnknown` so only real flags show, never a
+  badge per "Kingdom of …".
 
 ---
 
-## 6. Data flow (so the look survives new data)
+## 6. Data flow — curated seed + scraped long tail + progressive load
+
+The war-quiz dataset is **two tiers**, and that split is the whole performance story:
 
 ```
-excel-data/*.xlsx   ← source of truth (NEVER committed/pushed)
-      │  python scripts/parse.py   (npm run data)
+data/curated.json   ← ~120 HAND-WRITTEN wars (rich: sides, coalition names,
+      │               winner, outcome, region, deaths). The editable source.
+      │  scripts/fetch-wars.mjs  (npm run wars)
+      │     ↳ scrapes Wikipedia's "List of wars: <period>" tables
+      │       (Start | Finish | Name | Victorious party | Defeated party),
+      │       cleans belligerents, derives a coarse region, dedupes by name
+      │       (curated always wins the clash), marks curated `featured: true`
       ▼
-data/*.json         ← internships, stats, positions, education
-      │  imported in app/page.tsx
-      ▼
-components/dashboard.tsx  ← renders everything
+public/wars.json    ← the MERGED full set (~3,200 wars, ~800 KB). Shipped static.
 ```
 
-`scripts/parse.py` does the normalizing: it produces the `*Norm` fields
-(`outcomeNorm`, `stageNorm`, …) that the filters and tone maps key off of, and pre-aggregates
-all the `stats` (`funnel`, `byYear`, `byOutcome`, …) so the UI never computes anything heavy.
-**If you add a chart, aggregate it in `parse.py` and read it from `stats`** — keep the
-client dumb.
+- **`app/page.tsx` bundles only `data/curated.json` as the seed** and hands it to `<Quiz>`,
+  so the first question renders instantly from ~120 rich wars — every mode works immediately.
+- **`lib/load-wars.ts` then fetches `/wars.json` once** (module-level cache shared by the quiz
+  and the database page) and swaps the pool up to the full ~3,200. This is the BLUEPRINT2
+  "instant seed, lazy full set" pattern — the 800 KB never touches first paint.
+- **Eligibility, not assumption.** Scraped rows are sparse (often no deaths, sometimes one
+  side). `lib/quiz.ts` defines an `ELIGIBLE[mode]` predicate and pre-filters the pool per mode:
+  `deadlier`/`region` only draw from rich `featured` wars, `winner` needs both sides, `flags`
+  needs mappable flags on each side, `year`/`earlier` accept anything with a date. `mixed` only
+  offers a mode whose pool is non-empty. Add a mode → add a predicate; never assume a field.
+- The hand data is **never** thrown away by a re-scrape: `npm run wars` re-reads
+  `data/curated.json`, so editing curated facts and regenerating is safe and idempotent.
 
 ---
 

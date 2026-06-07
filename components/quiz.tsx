@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Swords, ExternalLink, ArrowRight, RotateCcw } from "lucide-react";
 import type { War, Question, ModeId } from "@/lib/types";
+import Link from "next/link";
 import { MODES, nextQuestion } from "@/lib/quiz";
 import { countryIds } from "@/lib/geo";
+import { loadWars, cachedWars } from "@/lib/load-wars";
 import { FlagRow } from "./flag";
 import { WorldMap } from "./world-map";
 import { ThemeToggle } from "./theme-toggle";
@@ -17,8 +19,10 @@ const AUTO_STEPS: { value: number; label: string }[] = [
   { value: 5, label: "5s" },
 ];
 
-export function Quiz({ wars }: { wars: War[] }) {
+export function Quiz({ seed }: { seed: War[] }) {
   const [mounted, setMounted] = useState(false);
+  const [pool, setPool] = useState<War[]>(() => cachedWars() ?? seed);
+  const [total, setTotal] = useState<number>(() => (cachedWars() ?? seed).length);
   const [mode, setMode] = useState<Mode>("mixed");
   const [auto, setAuto] = useState(0); // 0 = manual, else seconds
   const [q, setQ] = useState<Question | null>(null);
@@ -29,18 +33,32 @@ export function Quiz({ wars }: { wars: War[] }) {
   const [answered, setAnswered] = useState(0);
   const [correct, setCorrect] = useState(0);
 
-  // generate the very first question on the client → quiz starts immediately
+  // generate the very first question from the bundled seed → quiz starts immediately
   useEffect(() => {
     setMounted(true);
-    setQ(nextQuestion(wars, "mixed"));
-  }, [wars]);
+    setQ(nextQuestion(cachedWars() ?? seed, "mixed"));
+  }, [seed]);
+
+  // then pull in the full set (thousands of wars) in the background
+  useEffect(() => {
+    let alive = true;
+    loadWars().then((all) => {
+      if (alive) {
+        setPool(all);
+        setTotal(all.length);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const advance = useCallback(
     (m: Mode) => {
       setPicked(null);
-      setQ(nextQuestion(wars, m));
+      setQ(nextQuestion(pool, m));
     },
-    [wars]
+    [pool]
   );
 
   const choose = useCallback(
@@ -102,6 +120,12 @@ export function Quiz({ wars }: { wars: War[] }) {
             <div className="flex items-center gap-2">
               <Swords size={16} className="text-accent" />
               <span className="text-sm font-semibold tracking-tight">war quiz</span>
+              <Link
+                href="/database"
+                className="ml-1 hidden text-xs text-muted transition-colors hover:text-accent sm:inline"
+              >
+                database →
+              </Link>
             </div>
             <div className="flex items-center gap-3 sm:gap-5">
               <Kpi label="score" value={score} highlight />
@@ -265,7 +289,8 @@ export function Quiz({ wars }: { wars: War[] }) {
           <span>
             <kbd className="rounded border border-border px-1">1</kbd>–
             <kbd className="rounded border border-border px-1">4</kbd> answer ·{" "}
-            <kbd className="rounded border border-border px-1">enter</kbd> next
+            <kbd className="rounded border border-border px-1">enter</kbd> next ·{" "}
+            <span className="tabular-nums">{total.toLocaleString()}</span> wars
           </span>
           {answered > 0 && (
             <button

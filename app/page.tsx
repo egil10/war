@@ -1,17 +1,20 @@
-import warsData from "@/data/wars.json";
+import curated from "@/data/curated.json";
 import type { War } from "@/lib/types";
 import { Quiz } from "@/components/quiz";
 
-const wars = warsData as War[];
+const seed = (curated as War[]).map((w) => ({ ...w, featured: true }));
 
 export default function Page() {
   return (
     <>
-      <Quiz wars={wars} />
+      <Quiz seed={seed} />
       <footer className="border-t border-border">
         <div className="mx-auto max-w-3xl px-6 py-5 text-xs text-muted">
-          {wars.length} wars · <span className="tabular-nums">499 BC</span> → today · data from
-          wikipedia
+          every war ever fought · <span className="tabular-nums">2500 BC</span> → today · data from
+          wikipedia ·{" "}
+          <a href="/database" className="transition-colors hover:text-accent">
+            browse the database
+          </a>
         </div>
       </footer>
     </>
