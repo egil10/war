@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 252 252 250;
+  --surface: 255 255 255;
+  --border: 226 226 224;
+  --fg: 23 23 22;
+  --muted: 115 115 110;
+  --accent: 13 148 136;
+}
+
+.dark {
+  --bg: 12 13 14;
+  --surface: 22 23 25;
+  --border: 38 40 43;
+  --fg: 240 240 238;
+  --muted: 140 142 145;
+  --accent: 45 212 191;
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.22);
+}
+
+/* subtle teal glow behind the hero */
+.grain {
+  background-image:
+    radial-gradient(60% 50% at 15% 0%, rgb(var(--accent) / 0.10), transparent 70%),
+    radial-gradient(50% 60% at 90% 10%, rgb(var(--accent) / 0.08), transparent 70%);
+}
+
+/* scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--muted) / 0.5);
+}
+
+@keyframes pop {
+  0% { transform: scale(0.97); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+  animation: pop 0.18s ease-out;
+}
