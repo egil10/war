@@ -10,6 +10,10 @@ import { WorldMap } from "./world-map";
 const GREEN = "text-emerald-600 dark:text-emerald-400";
 const RED = "text-red-600 dark:text-red-400";
 
+function ids(w: War) {
+  return [...new Set([...countryIds(w.sideA), ...countryIds(w.sideB)])];
+}
+
 export function Reveal({
   q,
   correct,
@@ -83,25 +87,118 @@ export function Reveal({
   );
 }
 
-function WarCard({
+/* ---------- comparison modes: the two wars, compared side by side ---------- */
+
+function Comparison({ q }: { q: Question }) {
+  const a = q.warA!;
+  const b = q.warB!;
+  const isDeaths = q.mode === "deadlier";
+  const aWin = isDeaths ? a.deaths! > b.deaths! : a.start < b.start;
+
+  let takeaway: string;
+  if (isDeaths) {
+    const hi = aWin ? a : b;
+    const lo = aWin ? b : a;
+    const ratio = hi.deaths! / lo.deaths!;
+    takeaway = `${hi.name} was ~${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)}× deadlier than ${lo.name}.`;
+  } else {
+    const e = aWin ? a : b;
+    const l = aWin ? b : a;
+    const diff = l.start - e.start;
+    takeaway = `${e.name} began ${diff} year${diff === 1 ? "" : "s"} before ${l.name}.`;
+  }
+
+  const max = isDeaths ? Math.max(a.deaths!, b.deaths!) : 0;
+
+  return (
+    <div className="mt-3">
+      {/* the comparable headline: metric · flags · map, aligned in two columns */}
+      <div className="grid grid-cols-2 gap-3">
+        <CompareCol w={a} isDeaths={isDeaths} win={aWin} barPct={isDeaths ? (a.deaths! / max) * 100 : 0} />
+        <CompareCol w={b} isDeaths={isDeaths} win={!aWin} barPct={isDeaths ? (b.deaths! / max) * 100 : 0} />
+      </div>
+
+      <p className="mt-3 text-center text-sm">
+        <span className="text-muted">so: </span>
+        {takeaway}
+      </p>
+
+      {/* everything else, below */}
+      <div className="mt-3 grid grid-cols-2 gap-3 text-[11px] leading-relaxed text-muted">
+        <Detail w={a} />
+        <Detail w={b} />
+      </div>
+    </div>
+  );
+}
+
+function CompareCol({
   w,
-  showMap,
-  showSides,
-  highlight,
-  compact,
+  isDeaths,
+  win,
+  barPct,
 }: {
   w: War;
-  showMap: boolean;
-  showSides: boolean;
-  highlight?: boolean;
-  compact?: boolean;
+  isDeaths: boolean;
+  win: boolean;
+  barPct: number;
 }) {
-  const ids = [...new Set([...countryIds(w.sideA), ...countryIds(w.sideB)])];
-  const mapOk = showMap && ids.length > 0;
+  const mapIds = ids(w);
   return (
     <div
-      className={`rounded-lg border bg-bg/40 p-4 ${highlight ? "border-accent/60" : "border-border"}`}
+      className={`flex flex-col rounded-lg border p-3 ${
+        win ? "border-accent/60 bg-accent/[0.05]" : "border-border bg-bg/40"
+      }`}
     >
+      <a
+        href={wikiUrl(w)}
+        target="_blank"
+        rel="noreferrer"
+        className="truncate text-xs font-semibold leading-tight transition-colors hover:text-accent"
+      >
+        {w.name}
+      </a>
+      {/* big comparable metric */}
+      <div className={`mt-2 font-mono text-2xl font-semibold tabular-nums ${win ? "text-accent" : "text-fg"}`}>
+        {isDeaths ? formatDeaths(w.deaths!).replace(/^~/, "") : formatYear(w.start)}
+      </div>
+      <div className="text-[9px] uppercase tracking-wider text-muted">{isDeaths ? "deaths" : "began"}</div>
+      {isDeaths && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+          <div className={`h-full ${win ? "bg-accent" : "bg-muted"}`} style={{ width: `${barPct}%` }} />
+        </div>
+      )}
+      {/* flags */}
+      <div className="mt-3">
+        <MiniSides w={w} />
+      </div>
+      {/* map */}
+      {mapIds.length > 0 && (
+        <div className="mt-3">
+          <WorldMap primary={countryIds(w.sideA)} secondary={countryIds(w.sideB)} height={104} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniSides({ w }: { w: War }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px]">
+      <SidePart names={w.sideA} label={w.sideAName} win={w.winner === "A"} />
+      <span className="text-[9px] uppercase tracking-wider text-muted">vs</span>
+      <SidePart names={w.sideB} label={w.sideBName} win={w.winner === "B"} />
+    </div>
+  );
+}
+
+/* ---------- single-war modes: sides side by side, map, then details -------- */
+
+function WarCard({ w, showMap, showSides }: { w: War; showMap: boolean; showSides: boolean }) {
+  const mapIds = ids(w);
+  const mapOk = showMap && mapIds.length > 0;
+  return (
+    <div className="rounded-lg border border-border bg-bg/40 p-4">
       <div className="flex items-start justify-between gap-3">
         <a
           href={wikiUrl(w)}
@@ -111,23 +208,36 @@ function WarCard({
         >
           {w.name}
         </a>
-        <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-          {formatRange(w.start, w.end)}
-        </span>
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted">{formatRange(w.start, w.end)}</span>
       </div>
-      {showSides && <Sides w={w} />}
-      {mapOk && (
-        <div className="mt-3">
-          <WorldMap
-            primary={countryIds(w.sideA)}
-            secondary={countryIds(w.sideB)}
-            height={compact ? 120 : 168}
-          />
+
+      {/* the two sides, side by side */}
+      {showSides && (
+        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <SideCol names={w.sideA} label={w.sideAName} win={w.winner === "A"} align="left" />
+          <span className="text-[10px] uppercase tracking-wider text-muted">vs</span>
+          <SideCol names={w.sideB} label={w.sideBName} win={w.winner === "B"} align="right" />
         </div>
       )}
-      <div className="mt-3 flex flex-wrap gap-1.5">
+
+      {/* casualties, highlighted */}
+      {typeof w.deaths === "number" && (
+        <div className="mt-3 text-center">
+          <span className="font-mono text-xl font-semibold tabular-nums text-fg">{formatDeaths(w.deaths)}</span>
+          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted">est. deaths</span>
+        </div>
+      )}
+
+      {/* map */}
+      {mapOk && (
+        <div className="mt-3">
+          <WorldMap primary={countryIds(w.sideA)} secondary={countryIds(w.sideB)} height={168} />
+        </div>
+      )}
+
+      {/* additional info below */}
+      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
         {w.region && <Tag>{w.region.toLowerCase()}</Tag>}
-        {typeof w.deaths === "number" && <Tag>{formatDeaths(w.deaths)} dead</Tag>}
         {w.outcome ? (
           <Tag accent>{w.outcome.toLowerCase()}</Tag>
         ) : (
@@ -138,12 +248,27 @@ function WarCard({
   );
 }
 
-function Sides({ w }: { w: War }) {
+function SideCol({
+  names,
+  label,
+  win,
+  align,
+}: {
+  names: string[];
+  label?: string;
+  win: boolean;
+  align: "left" | "right";
+}) {
+  const text = label || (names.length ? names.join(" / ") : "—");
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      <SidePart names={w.sideA} label={w.sideAName} win={w.winner === "A"} />
-      <span className="text-[10px] uppercase tracking-wider text-muted">vs</span>
-      <SidePart names={w.sideB} label={w.sideBName} win={w.winner === "B"} />
+    <div className={`min-w-0 ${align === "right" ? "text-right" : "text-left"}`}>
+      <div className={`flex flex-wrap items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
+        {win && <Trophy size={12} className="shrink-0 text-accent" />}
+        {names.slice(0, 4).map((n, i) => (
+          <Flag key={`${n}-${i}`} name={n} size={16} hideUnknown />
+        ))}
+      </div>
+      <div className={`mt-1 text-xs ${win ? "font-semibold text-fg" : "text-muted"}`}>{text}</div>
     </div>
   );
 }
@@ -151,13 +276,23 @@ function Sides({ w }: { w: War }) {
 function SidePart({ names, label, win }: { names: string[]; label?: string; win: boolean }) {
   const text = label || (names.length ? names.join(" / ") : "—");
   return (
-    <span className="inline-flex items-center gap-1.5">
-      {win && <Trophy size={12} className="shrink-0 text-accent" />}
-      {names.slice(0, 3).map((n, i) => (
-        <Flag key={`${n}-${i}`} name={n} size={13} hideUnknown />
+    <span className="inline-flex items-center gap-1">
+      {win && <Trophy size={11} className="shrink-0 text-accent" />}
+      {names.slice(0, 2).map((n, i) => (
+        <Flag key={`${n}-${i}`} name={n} size={12} hideUnknown />
       ))}
       <span className={win ? "font-semibold text-fg" : "text-muted"}>{text}</span>
     </span>
+  );
+}
+
+function Detail({ w }: { w: War }) {
+  return (
+    <div>
+      <span className="font-mono tabular-nums">{formatRange(w.start, w.end)}</span>
+      {w.region && ` · ${w.region.toLowerCase()}`}
+      {w.outcome && ` · ${w.outcome.toLowerCase()}`}
+    </div>
   );
 }
 
@@ -173,38 +308,7 @@ function Tag({ children, accent }: { children: React.ReactNode; accent?: boolean
   );
 }
 
-function Comparison({ q }: { q: Question }) {
-  const a = q.warA!;
-  const b = q.warB!;
-  const isDeaths = q.mode === "deadlier";
-  let takeaway: string;
-  let aWin: boolean;
-  if (isDeaths) {
-    aWin = a.deaths! > b.deaths!;
-    const hi = aWin ? a : b;
-    const lo = aWin ? b : a;
-    const ratio = hi.deaths! / lo.deaths!;
-    takeaway = `${hi.name} was ~${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)}× deadlier than ${lo.name}.`;
-  } else {
-    aWin = a.start < b.start;
-    const e = aWin ? a : b;
-    const l = aWin ? b : a;
-    const diff = l.start - e.start;
-    takeaway = `${e.name} began ${diff} year${diff === 1 ? "" : "s"} before ${l.name}.`;
-  }
-  return (
-    <div className="mt-3">
-      <p className="mb-3 text-sm">
-        <span className="text-muted">so: </span>
-        {takeaway}
-      </p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <WarCard w={a} showMap showSides compact highlight={aWin} />
-        <WarCard w={b} showMap showSides compact highlight={!aWin} />
-      </div>
-    </div>
-  );
-}
+/* ---------- order mode ---------- */
 
 function OrderReveal({ q, userOrder }: { q: Question; userOrder: War[] }) {
   const correctOrder = q.items!;
@@ -236,7 +340,7 @@ function OrderReveal({ q, userOrder }: { q: Question; userOrder: War[] }) {
               >
                 {w.name}
               </a>
-              <span className="shrink-0 font-mono text-xs tabular-nums text-fg">
+              <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-fg">
                 {isDeaths ? formatDeaths(w.deaths!) : formatYear(w.start)}
               </span>
             </div>

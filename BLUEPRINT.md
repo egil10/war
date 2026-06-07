@@ -179,12 +179,19 @@ That's the whole contract.
   a locator `WorldMap`, and tags (region · deaths · outcome). Rules: **always show the map &
   flags where we have them**, but **never double up** — if the question already showed flags
   (`flags` mode) hide the card's sides; if it already showed the map (`map` mode) hide the
-  card's map (keyed off `q.mode`). Comparison modes (`deadlier`/`earlier`) render a one-line
-  takeaway ("~14× deadlier", "136 years before") over two highlighted cards; `order` mode
-  lists the correct sequence with each row green/red by whether the player placed it there.
+  card's map (keyed off `q.mode`). **Comparison-first layout:** for `deadlier`/`earlier` the
+  *comparable* things sit side by side in two columns — a big mono metric (casualties, with a
+  shared-scale proportional bar; or the start year), then flags, then a mini map — with the
+  winning column accent-bordered; the one-line takeaway ("~14× deadlier", "136 years before")
+  and the secondary details (dates · region · outcome) go *below*. Single-war cards mirror it:
+  the two sides side by side (`grid-cols-[1fr_auto_1fr]` with "vs"), casualties highlighted,
+  map full width, tags below. `order` mode lists the correct sequence with each row green/red
+  by whether the player placed it there.
 - **`timeline.tsx`** (`pin` mode) — `TimelineSlider` to drag a year + lock in; `TimelineResult`
   drops two pins (guess vs truth) on the axis so "how close was I" is spatial and memorable.
-- **`sortable.tsx`** (`order` mode) — up/down reordering of 3 wars by year or death toll.
+- **`sortable.tsx`** (`order` mode) — reorder 3 wars by year or death toll. Pointer-based
+  **drag** (a grip handle uses `setPointerCapture` + row-midpoint hit-testing so it works on
+  mouse and touch, no DnD library) with up/down arrows kept as a fallback.
 
 ### Answer inputs are pluggable (war-quiz)
 
