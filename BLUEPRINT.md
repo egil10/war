@@ -41,15 +41,17 @@ surface   cards / inputs       light 255 255 255   dark 22 23 25
 border    every hairline       light 226 226 224   dark 38 40 43
 fg        primary text         light 23 23 22      dark 240 240 238
 muted     secondary text       light 115 115 110   dark 140 142 145
-accent    the ONE teal         light 13 148 136    dark 45 212 191
+accent    the ONE red          light 220 38 38     dark 248 113 113
 ```
 
-They're stored as raw RGB triples (`13 148 136`) so Tailwind's `<alpha-value>` works —
+They're stored as raw RGB triples (`220 38 38`) so Tailwind's `<alpha-value>` works —
 that's what lets you write `bg-accent/10`, `border-accent/40`, `text-accent`. One accent
 color, used sparingly, carries the entire brand. Resist adding a second.
 
-(The status pills in the table are the *only* place other hues appear — blue/violet/rose/
-orange — and even there they're always `/10`–`/40` opacity tints, never solid fills.)
+**Correct vs wrong stays single-accent on purpose.** A right answer lights up in the red
+accent (`border-accent bg-accent/10 text-accent`); a wrong pick goes *neutral* — dimmed,
+muted, `line-through` — never a second hue. Red is the brand, not an error color, so we
+never pair it with green/rose; the contrast is accent-vs-absence, not red-vs-green.
 
 ### Typography
 
@@ -77,10 +79,11 @@ deliberate.
 
 ### Three signature touches
 
-1. **`.grain` hero background** (in `globals.css`): two faint teal radial gradients. Gives
+1. **`.grain` header background** (in `globals.css`): two faint red radial gradients. Gives
    the top of the page a subtle glow without an image.
-2. **Negative-margin stat strip**: the stat cards use `-mt-6` to pull up and overlap the
-   hero's bottom border, so they look "dropped onto" the seam.
+2. **KPIs live in the header**: in the war-quiz build the live stats (score / streak / best /
+   accuracy) sit inline in the top bar next to the brand — no separate stat strip — so the
+   landing page is almost pure controls + question. Keep chrome minimal; the game is the page.
 3. **Custom scrollbars + `::selection`** tinted with the accent. Small, but it's what makes
    it feel finished.
 
@@ -191,5 +194,5 @@ client dumb.
 
 ---
 
-*The aesthetic in one sentence: off-white canvas, one teal accent, hairline-bordered rounded
-cards, monospaced numbers, lowercase labels, and copy that's honest about failure.*
+*The aesthetic in one sentence: off-white canvas, one red accent, hairline-bordered rounded
+cards, monospaced numbers, lowercase labels, and as little copy as the screen can survive on.*

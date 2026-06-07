@@ -8,7 +8,7 @@
   --border: 226 226 224;
   --fg: 23 23 22;
   --muted: 115 115 110;
-  --accent: 13 148 136;
+  --accent: 220 38 38;
 }
 
 .dark {
@@ -17,7 +17,7 @@
   --border: 38 40 43;
   --fg: 240 240 238;
   --muted: 140 142 145;
-  --accent: 45 212 191;
+  --accent: 248 113 113;
 }
 
 * {
@@ -67,4 +67,9 @@ body {
 }
 .animate-pop {
   animation: pop 0.18s ease-out;
+}
+
+@keyframes shrink {
+  from { width: 100%; }
+  to { width: 0%; }
 }

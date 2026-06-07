@@ -9,11 +9,9 @@ export default function Page() {
     <>
       <Quiz wars={wars} />
       <footer className="border-t border-border">
-        <div className="mx-auto max-w-3xl px-6 py-6 text-xs text-muted">
-          a curated quiz over {wars.length} wars from {" "}
-          <span className="tabular-nums">499 BC</span> to today. data hand-stitched from
-          wikipedia; casualty figures are rough historical estimates. made for the love of
-          history, not as a textbook.
+        <div className="mx-auto max-w-3xl px-6 py-5 text-xs text-muted">
+          {wars.length} wars · <span className="tabular-nums">499 BC</span> → today · data from
+          wikipedia
         </div>
       </footer>
     </>
